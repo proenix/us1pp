@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<!-- Load required Bootstrap and BootstrapVue CSS -->
+<link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css" />
+<link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css" />
+
+<!-- Load polyfills to support older browsers -->
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver" crossorigin="anonymous"></script>
+
+<!-- Load Vue followed by BootstrapVue -->
+<!-- <script type="text/javascript" src="./vue.js/"></script> -->
+<script type="text/javascript" src="./vue.min.js"></script>
+<!-- <script src="//unpkg.com/vue@latest/dist/vue.min.js"></script> -->
+<script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+
+<!-- Load the following for BootstrapVueIcons support -->
+<script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue-icons.min.js"></script>
+
+<script type="text/javascript" src="./turing.js"></script>
+
+</head>
+<body>
+  <div class="container" id="machine">
+    <h1>Turing Machine Simulator</h1>
+    <div class="row">
+      <div id="tape-container" class="col-md-8 col-sm-12">
+        <canvas id="tape" width="" height="200px"></canvas>
+      </div>
+      <div id="machine-controls" class="col-md-4 col-sm-12">
+        <div class="row">
+          <div class="col-md-12">
+            <h2>Sterowanie</h2>
+          </div>
+          <div class="col-md-12 m-2">
+            <b-button variant="success" v-on:click="loadData">Załaduj wprowadzone dane</b-button><br>
+          </div>
+          <div class="col-md-12 m-2">
+            <b-button variant="success" v-on:click="toggleStart">Start</b-button>
+            <b-button variant="danger" v-on:click="toggleStop">Stop</b-button>
+            <b-button v-on:click="togglePause">Pauza</b-button>
+            <b-button v-on:click="toggleReset">Reset</b-button>
+          </div>
+          <div class="col-md-12 m-2">
+            <b-button v-on:click="toggleStepNext">Następny krok</b-button>
+            <p>Kroki: {{ stepsCounter }}</p>
+            <p>Status: {{ machineStatus }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-12">
+        <h2>Taśma</h2>
+        <label for="inputTape">Początkowa zawartość taśmy: <small>(Długość: {{ inputTapeLength }})</small></label>
+        <b-form-input id="inputTape" v-model="inputTape" placeholder="Zawartość taśmy"></b-form-input>
+        <b-form-text>Każdy znak będzie umieszczony w jednym polu taśmy. Pusty symbol na taśmie oznaczyć możesz przez użycie spacji " " lub "#".</b-form-text>
+        <br>
+        <label for="inputState">Początkowa zawartość głowicy:</label>
+        <b-form-input
+          id="inputState"
+          v-model="inputState"
+          :state="inputStateValidator"
+          aria-describedby="inputState-live-feedback"
+          placeholder="Zawartość głowicy"
+        ></b-form-input>
+        <b-form-invalid-feedback id="inputState-live-feedback">
+          Zawartość głowicy nie może być pusta.
+        </b-form-invalid-feedback>
+      </div>
+      <div class="col-md-12">
+        <b-form-group label="Wybierz pozycję startową głowicy:">
+          <b-form-radio-group>
+            <input type="radio" selected id="inputStartPosition2" value="last" v-model="inputStartPosition">
+            <label for="inputStartPosition2">Koniec taśmy (z prawej)</label>
+            <br>
+            <input type="radio" id="inputStartPosition1" value="first" v-model="inputStartPosition">
+            <label for="inputStartPosition1">Początek taśmy (z lewej)</label>
+            <br>
+            <input type="radio" id="inputStartPosition3" value="custom" v-model="inputStartPosition">
+            <label for="inputStartPosition3">
+              <span style="display:inline-block;">
+                <b-form-input
+                  v-model="inputStartPositionCustom"
+                  :state="inputStartPositionCustomState"
+                  aria-describedby="inputStartPositionCustom-live-feedback"
+                  placeholder="Pozycja głowicy"
+                  trim
+                ></b-form-input>
+                <b-form-invalid-feedback id="inputStartPositionCustom-feedback">
+                  Nieprawidłowa pozycja głowicy.
+                </b-form-invalid-feedback>
+              </span> pozycja licząc od lewej.
+            </label>
+        </b-form-radio-group>
+        </b-form-group>
+      </div>
+      <div class="col-md-12">
+        <h2>Reguły</h2>
+        <p>Zdefiniuj reguły. Początek, koniec oraz pusty symbol na taśmie oznaczyć możesz przez użycie spacji " " lub "#".</p>
+        <b-list-group id="ruleList">
+          <b-row class="m-1">
+            <b-col cols="2">
+              Stary Stan
+            </b-col>
+            <b-col cols="2">
+              Stary Symbol
+            </b-col>
+            <b-col cols="2">
+              Nowy Symbol
+            </b-col>
+            <b-col cols="2">
+              Nowy Stan
+            </b-col>
+            <b-col cols="2">
+              Przesunięcie
+            </b-col>
+            <b-col cols="2">
+            </b-col>
+          </b-row>
+          <b-row class="m-1" v-for="(rule, index) in rules" v-bind:class=" {'current-rule': currentRuleCheck(index)} ">
+            <b-col cols="2">
+              <b-form-input type="text" v-model="rule.oldState">
+            </b-col>
+            <b-col cols="2">
+              <b-form-input type="text" v-model="rule.oldSymbol">
+            </b-col>
+            <b-col cols="2">
+              <b-form-input type="text" v-model="rule.newSymbol">
+            </b-col>
+            <b-col cols="2">
+              <b-form-input type="text" v-model="rule.newState">
+            </b-col>
+            <b-col cols="2">
+              <b-form-select v-model="rule.move" :options="rulesOptions"></b-form-select>
+            </b-col>
+            <b-col cols="2">
+              <b-button v-on:click="deleteRow(index)">Usuń regułę</b-button>
+            </b-col>
+          </b-row>
+        </b-list-group>
+        <br>
+        <b-button v-on:click="addRow">Dodaj nową regułę</b-button>
+
+        <b-list-group id="endStateList">
+          <b-row class="m-1">
+            <b-col cols="2">
+              Stany końcowe:
+            </b-col>
+          </b-row>
+          <b-row>
+            <b-col cols="2" class="m-1" v-for="(state, index) in endState">
+              <b-form-input style="display: inline-block;width:calc(100% - 50px);" cols="3" type="text" v-model="state.state"></b-form-input>
+              <b-button style="float:right;" v-on:click="deleteRowEndState(index)">X</b-button>
+            </b-col>
+          </b-row>
+        </b-list-group>
+        <br>
+        <b-button v-on:click="addRowEndState">Dodaj nową regułę</b-button>
+      </div>
+      <div class="col-md-12">
+        <h2>Animacja</h2>
+      </div>
+      <div class="col-md-6 m-2">
+        <b-button id="toggleAnimation" :disabled="!animationControlsEnabled" v-on:click="toggleAnimation">{{animation?"Wyłącz animację":"Włącz aniamcję"}}</b-button><br>
+        <label for="animationSpeedRange">Szybkość wykonywania akcji: {{ animationSpeed }}s</label>
+        <b-form-input :disabled="!animationControlsEnabled" id="animationSpeedRange" v-model="animationSpeed" type="range" min="0.0" max="5" step="0.05"></b-form-input>
+      </div>
+      <div class="col-md-12">
+        <h2>Import/Export</h2>
+        <b-button v-on:click="importJSON('#')">Importuj z JSON</b-button>
+        <b-button v-on:click="exportJSON">Exportuj do JSON</b-button>
+        <b-dropdown id="example-machines" text="Załaduj przykładową maszynę" class="m-2">
+          <b-dropdown-item v-on:click="installExample('binaryIncrement')">Inkrementacja binarna</b-dropdown-item>
+          <b-dropdown-item v-on:click="installExample('binaryCounter')">Licznik binarny</b-dropdown-item>
+          <b-dropdown-item v-on:click="installExample('infinityLeft')">Nieskończoność w lewo</b-dropdown-item>
+          <b-dropdown-item v-on:click="installExample('infinityRight')">Nieskończoność w prawo</b-dropdown-item>
+        </b-dropdown>
+        <b-form-textarea
+        id="textarea"
+        v-model="importExportJSON"
+        placeholder='"{"position":8,"tapeContent":["1","0","1","0","1","1","1","1","1"],"state":"0","rules":[{"oldState":"0","oldSymbol":" ","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"0","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"1","newSymbol":"0","newState":"0","move":"L"},{"oldState":"1","oldSymbol":" ","newSymbol":" ","newState":"h","move":"L"},{"oldState":"1","oldSymbol":"0","newSymbol":"0","newState":"1","move":"R"},{"oldState":"1","oldSymbol":"1","newSymbol":"1","newState":"1","move":"R"}]}"'
+        rows="3"
+        max-rows="6"
+        class="m-1"
+        ></b-form-textarea>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+  var example = {
+    binaryIncrement: {
+      position: 8,
+      tapeContent: [
+        '1','0','1','0','1','1','1','1','1',
+      ],
+      state: '0',
+      rules: [
+        {oldState: '0', oldSymbol: " ", newSymbol: '1', newState: '1', move: 'R'},
+        {oldState: '0', oldSymbol: '0', newSymbol: '1', newState: '1', move: 'R'},
+        {oldState: '0', oldSymbol: '1', newSymbol: '0', newState: '0', move: 'L'},
+        {oldState: '1', oldSymbol: " ", newSymbol: " ", newState: 'h', move: 'L'},
+        {oldState: '1', oldSymbol: '0', newSymbol: '0', newState: '1', move: 'R'},
+        {oldState: '1', oldSymbol: '1', newSymbol: '1', newState: '1', move: 'R'},
+      ],
+      endState: [],
+    },
+    binaryCounter: {
+      position: 0,
+      tapeContent: [
+        '1',
+      ],
+      state: '0',
+      rules: [
+        {oldState: '0', oldSymbol: " ", newSymbol: '1', newState: '1', move: 'R'},
+        {oldState: '0', oldSymbol: '0', newSymbol: '1', newState: '1', move: 'R'},
+        {oldState: '0', oldSymbol: '1', newSymbol: '0', newState: '0', move: 'L'},
+        {oldState: '1', oldSymbol: " ", newSymbol: " ", newState: 'h', move: 'L'},
+        {oldState: '1', oldSymbol: '0', newSymbol: '0', newState: '1', move: 'R'},
+        {oldState: '1', oldSymbol: '1', newSymbol: '1', newState: '1', move: 'R'},
+        {oldState: 'h', oldSymbol: '0', newSymbol: '0', newState: '0', move: 'S'},
+        {oldState: 'h', oldSymbol: '1', newSymbol: '1', newState: '0', move: 'S'},
+      ],
+      endState: [
+        {state: 'h'}
+      ],
+    },
+    infinityLeft: {
+      position: 0,
+      tapeContent: [
+        '0',
+      ],
+      state: '0',
+      rules: [
+        {oldState: '0', oldSymbol: '0', newSymbol: '0', newState: '1', move: 'S'},
+        {oldState: '1', oldSymbol: '0', newSymbol: '0', newState: '1', move: 'L'},
+        {oldState: '1', oldSymbol: ' ', newSymbol: '0', newState: '0', move: 'S'},
+      ],
+      endState: [],
+    },
+    infinityRight: {
+      position: 0,
+      tapeContent: [
+        '0',
+      ],
+      state: '0',
+      rules: [
+        {oldState: '0', oldSymbol: '0', newSymbol: '0', newState: '1', move: 'S'},
+        {oldState: '1', oldSymbol: '0', newSymbol: '0', newState: '1', move: 'R'},
+        {oldState: '1', oldSymbol: ' ', newSymbol: '0', newState: '0', move: 'S'},
+      ],
+      endState: [],
+    }
+  };
+  var data = {
+    debug: false,
+    tape: null,
+    position: 7,
+    tapeContent: [
+      '1','0','1','1','1','1','1','1',
+    ],
+    state: '0',
+    rules: [
+      {oldState: '0', oldSymbol: " ", newSymbol: '1', newState: '1', move: 'R'},
+      {oldState: '0', oldSymbol: '0', newSymbol: '1', newState: '1', move: 'R'},
+      {oldState: '0', oldSymbol: '1', newSymbol: '0', newState: '0', move: 'L'},
+      {oldState: '1', oldSymbol: " ", newSymbol: " ", newState: 'h', move: 'L'},
+      {oldState: '1', oldSymbol: '0', newSymbol: '0', newState: '1', move: 'R'},
+      {oldState: '1', oldSymbol: '1', newSymbol: '1', newState: '1', move: 'R'},
+    ],
+    endState: [
+      {state: 'h'}
+    ],
+    animation: false,
+    animationControlsEnabled: true,
+    runAnimation: false,
+    animationTime: 0.5,
+    animationFinished: true,
+    currentBucket: 1,
+    machineStatus: "Gotowa.",
+    machine: null,
+    foundRules: null,
+    stepsCounter: 0,
+    currentRule: [],
+
+    inputTape: '10111111',
+    inputStartPosition: 'last',
+    inputStartPositionCustom: '0',
+    inputState: '0',
+
+    animationSpeed: 0.5, // default AnimationSpeed
+
+    importExportJSON: null,
+    backup: '{"position":7,"tapeContent":"10111111","state":"0","rules":[{"oldState":"0","oldSymbol":" ","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"0","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"1","newSymbol":"0","newState":"0","move":"L"},{"oldState":"1","oldSymbol":" ","newSymbol":" ","newState":"h","move":"L"},{"oldState":"1","oldSymbol":"0","newSymbol":"0","newState":"1","move":"R"},{"oldState":"1","oldSymbol":"1","newSymbol":"1","newState":"1","move":"R"}]}',
+    rulesOptions: [
+      { value: 'L', text: "Lewo" },
+      { value: 'R', text: "Prawo" },
+      { value: 'S', text: "Zostań"},
+    ]
+  };
+
+  var vm = new Vue({
+    el: '#machine',
+    data: data,
+    watch: {
+      animationSpeed: function(val) {
+        if (data.animationControlsEnabled) {
+          data.animationTime = val;
+        }
+      },
+    },
+    mounted: function() {
+      data.tape = new Tape(document.getElementById('tape'));
+      data.tape.initialize();
+      data.tape.redraw();
+    },
+    computed: {
+      inputStartPositionCustomState() {
+        if (data.inputStartPosition == 'custom') {
+          if (data.inputStartPositionCustom == "") return false;
+          try {
+            data.inputStartPositionCustom = parseInt(data.inputStartPositionCustom);
+          } catch (e) {
+            console.log("Error parseInt.");
+          }
+          if ((Number.isInteger(data.inputStartPositionCustom))
+            && (data.inputStartPositionCustom >= 0)
+            && (data.inputStartPositionCustom < (data.tapeContent.length - 1))
+          ) {
+            return true;
+          } else {
+            return false;
+          }
+        }
+        return true;
+      },
+      inputTapeLength() {
+        return data.inputTape.length;
+      },
+      inputStateValidator() {
+        if (data.inputState.length > 0) {
+          return true;
+        }
+        return false;
+      },
+      tapeLength: function() {
+        return data.tapeContent.length;
+      },
+    },
+    methods: {
+      /**
+      * Check if is current rule.
+      */
+      currentRuleCheck: function(index) {
+        if (data.currentRule.includes(index.toString())) {
+          return true;
+        }
+        return false;
+      },
+      /**
+      * Loads tape content and head position from user input.
+      */
+      loadData: function() {
+        data.tapeContent = data.inputTape.split('');
+
+        if (data.inputStartPosition == 'last') {
+          data.position = data.tapeContent.length - 1;
+        } else if (data.inputStartPosition == 'first') {
+          data.position = 0;
+        } else if (data.inputStartPosition == 'custom') {
+          try {
+            data.inputStartPositionCustom = parseInt(data.inputStartPositionCustom);
+          } catch (e) {
+            console.log("Error parseInt.");
+          }
+          if ((Number.isInteger(data.inputStartPositionCustom))
+            && (data.inputStartPositionCustom >= 0)
+            && (data.inputStartPositionCustom < (data.tapeContent.length - 1))
+          ) {
+            data.position = data.inputStartPositionCustom -1;
+          }
+        }
+        data.state = data.inputState;
+        data.backup = this.prepareJson();
+        this.redraw();
+      },
+      /**
+      * Add row to rules
+      */
+      addRow() {
+        this.rules.push({oldState: '', oldSymbol: '', newSymbol: '', newState: '', move: 'S'},)
+      },
+      addRowEndState() {
+        this.endState.push({state: null})
+      },
+      /**
+      * Remove row from rules
+      */
+      deleteRow(index) {
+        this.rules.splice(index,1)
+      },
+      deleteRowEndState(index) {
+        this.endState.splice(index,1)
+      },
+      /**
+      * Move tape to left.
+      */
+      moveLeft: function() {
+        console.log("ML");
+        // data.tapeContent[data.position] = "<";
+        if (data.position == 0) {
+          data.tapeContent.unshift(" ");
+        } else {
+          data.position--;
+        }
+        if (data.animation) {
+          data.tape.moveLeft(data.position+1);
+        } else {
+          this.redraw();
+        }
+      },
+      /**
+      * Move tape to right.
+      */
+      moveRight: function() {
+        console.log("MR");
+        // data.tapeContent[data.position] = ">";
+        if (data.position == data.tapeContent.length-1) {
+          data.tapeContent.push(" ");
+          data.position++;
+        } else {
+          data.position++;
+        }
+        if (data.animation) {
+          data.tape.moveRight(data.position-1);
+        } else {
+          this.redraw();
+        }
+      },
+      /**
+      *
+      */
+      redraw: function() {
+        data.tape.currentPosition = data.position;
+        data.tape.redraw();
+      },
+      reset: function() {
+        this.importJSON(data.backup);
+        this.redraw();
+      },
+      getCurrentBucket: function() {
+        if(data.currentBucket == null) {
+          return " ";
+        }
+        return data.currentBucket;
+      },
+      /**
+      * Change if tape should be animated.
+      */
+      toggleAnimation: function() {
+        data.animation = !data.animation;
+      },
+      toggleReset: function() {
+        this.reset();
+        console.log("toggleReset");
+      },
+      /**
+      * Toggle turing machine start.
+      */
+      toggleStart: function() {
+        data.machineStatus = "Pracuję...";
+        data.animationControlsEnabled = false;
+        data.machine = setInterval(function() {
+          vm.step();
+        }, (data.animationTime * 1000));
+        console.log(270 * data.animationTime);
+
+        console.log("toggleStart");
+      },
+      /**
+      * Toggle turing machine stop.
+      */
+      toggleStop: function() {
+        this.stop();
+        console.log("toggleStop");
+        data.machineStatus = "Zatrzymane.";
+      },
+      /**
+      * Process stopping machine.
+      */
+      stop: function() {
+        clearInterval(data.machine);
+        data.animationControlsEnabled = true;
+        this.redraw();
+      },
+      /**
+      * Toggle turing machine pause.
+      */
+      togglePause: function() {
+        clearInterval(data.machine);
+        data.animationControlsEnabled = true;
+        console.log("togglePause");
+        data.machineStatus = "Pauza.";
+      },
+      toggleStepNext: function() {
+        this.step();
+        console.log("toggleStepNext");
+      },
+      toggleStepPrevious: function() {
+        console.log("toggleStepPrevious - not implemented");
+      },
+      findRule: function() {
+        data.currentBucket = data.tapeContent[data.position];
+
+        // Reset found rules.
+        data.currentRule = [];
+
+        let foundRules = [];
+        for (let index in data.rules) {
+          let rule = data.rules[index];
+          if (data.state == rule.oldState && data.currentBucket == rule.oldSymbol) {
+            console.log("Rule Found.", index);
+            foundRules.push(rule);
+            data.currentRule.push(index);
+          }
+        }
+        data.foundRules = foundRules;
+
+      },
+      step: function() {
+        this.findRule();
+
+        if (data.foundRules.length == 0) {
+          // Check if end state achieved
+          for (let index in data.endState) {
+            let endS = data.endState[index];
+            if (endS.state == data.state) {
+              data.machineStatus = "Koniec. Osiągnięto stan końcowy.";
+              this.stop();
+              return;
+            }
+          }
+          data.machineStatus = "Koniec. Nie znaleziono pasujących reguł.";
+          this.stop();
+          return;
+        } else {
+          let rule = data.foundRules[Math.floor(Math.random()*data.foundRules.length)];
+          data.machineStatus = "Pracuję...";
+          if (data.foundRules.length > 1) {
+            data.machineStatus = "Uwaga! Wiele reguł dla jednego stanu!";
+          }
+          // Invrement steps counter.
+          data.stepsCounter++;
+          // Process rule
+          if (rule.move == "L") {
+            data.state = rule.newState;
+            data.tapeContent[data.position] = rule.newSymbol;
+            return this.moveLeft();
+          }
+          if (rule.move == "R") {
+            data.state = rule.newState;
+            data.tapeContent[data.position] = rule.newSymbol;
+            return this.moveRight();
+          }
+          if (rule.move == "S") {
+            data.state = rule.newState;
+            data.tapeContent[data.position] = rule.newSymbol;
+            return this.redraw();
+          }
+        }
+      },
+      installExample: function(selector) {
+        if (example.hasOwnProperty(selector)) {
+          // Clone configs.
+          let temp = JSON.stringify(example[selector]);
+          temp = JSON.parse(temp);
+
+          data.position = temp.position;
+          data.tapeContent = temp.tapeContent;
+          data.state = temp.state;
+          data.rules = temp.rules;
+          data.endState = temp.endState;
+          data.inputTape = temp.tapeContent.join('');
+          data.stepsCounter = 0;
+          if (temp.position == 0) {
+            data.inputStartPosition = "first";
+          } else if (temp.position == temp.tapeContent.length - 1) {
+            data.inputStartPosition = "last";
+          } else {
+            data.inputStartPosition = "custom";
+            data.inputStartPositionCustom = temp.position+1;
+          }
+          this.redraw();
+        }
+      },
+      /**
+      * Import elements from JSON.
+      */
+      importJSON: function(jsonString = '#') {
+        try {
+          let tempS;
+          if (jsonString !== '#') {
+            tempS = jsonString;
+          } else {
+            tempS = data.importExportJSON;
+          }
+
+          let temp = JSON.parse(tempS);
+          data.position = temp.position;
+          data.tapeContent = temp.tapeContent.split('');
+          data.state = temp.state;
+          data.rules = temp.rules;
+          data.endState = temp.endState;
+          data.inputTape = temp.tapeContent;
+          data.stepsCounter = 0;
+          if (temp.position == 0) {
+            data.inputStartPosition = "first";
+          } else if (temp.position == temp.tapeContent.length - 1) {
+            data.inputStartPosition = "last";
+          } else {
+            data.inputStartPosition = "custom";
+            data.inputStartPositionCustom = temp.position+1;
+          }
+          data.backup = tempS;
+          data.machineStatus = "Gotowa.";
+        } catch (e) {
+          alert("Błąd importu. Nieprawidłowe dane.", e);
+        }
+      },
+      /**
+      * Prepare JSON for export.
+      * @return string Machine settings as JSON.
+      */
+      prepareJson: function() {
+        let temp = {};
+        temp.position = data.position;
+        temp.tapeContent = data.inputTape;
+        temp.state = data.inputState;
+        temp.rules = data.rules;
+        temp.endState = data.endState;
+        return JSON.stringify(temp);
+      },
+      /**
+      * Export necessary elements to JSON.
+      */
+      exportJSON: function() {
+        data.importExportJSON = this.prepareJson();
+      },
+    }
+  })
+  </script>
+
+  <style media="screen">
+    canvas {
+      border: 1px solid white;
+    }
+    #ruleList .row .col-2:first-of-type {
+      padding-left: 30px;
+    }
+    #ruleList .row.current-rule::before {
+      font-size: 1.5rem;
+      content: "\2B9E";
+      position: absolute;
+      color: darkgreen;
+      display: inline-block;
+    }
+  </style>
+</body>
+</html>
