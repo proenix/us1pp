@@ -100,7 +100,7 @@ class Tape {
   redraw(x=0) {
     // this.resize();
     // Clean Canvas Rectangle
-    this.g.clearRect(0, 0, this.width, this.canvas.heigh);
+    this.g.clearRect(0, 0, this.width, this.canvas.height);
 
     // Draw empty buckets.
     let visibleBuckets = Math.floor(this.width / this.bucketWidth);

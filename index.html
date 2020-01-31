@@ -25,7 +25,7 @@
 </head>
 <body>
   <div class="container" id="machine">
-    <h1>Turing Machine Simulator</h1>
+    <h1>Symulator Maszyny Turinga</h1>
     <div class="row">
       <div id="tape-container" class="col-md-8 col-sm-12">
         <canvas id="tape" width="" height="200px"></canvas>
@@ -55,9 +55,9 @@
         <h2>Taśma</h2>
         <label for="inputTape">Początkowa zawartość taśmy: <small>(Długość: {{ inputTapeLength }})</small></label>
         <b-form-input id="inputTape" v-model="inputTape" placeholder="Zawartość taśmy"></b-form-input>
-        <b-form-text>Każdy znak będzie umieszczony w jednym polu taśmy. Pusty symbol na taśmie oznaczyć możesz przez użycie spacji " " lub "#".</b-form-text>
+        <b-form-text>Każdy znak będzie umieszczony w jednym polu taśmy. Pusty symbol na taśmie oznaczyć możesz przez użycie spacji " ".</b-form-text>
         <br>
-        <label for="inputState">Początkowa zawartość głowicy:</label>
+        <label for="inputState">Początkowy stan głowicy:</label>
         <b-form-input
           id="inputState"
           v-model="inputState"
@@ -66,7 +66,7 @@
           placeholder="Zawartość głowicy"
         ></b-form-input>
         <b-form-invalid-feedback id="inputState-live-feedback">
-          Zawartość głowicy nie może być pusta.
+          Stan głowicy nie może być pusty.
         </b-form-invalid-feedback>
       </div>
       <div class="col-md-12">
@@ -98,44 +98,44 @@
       </div>
       <div class="col-md-12">
         <h2>Reguły</h2>
-        <p>Zdefiniuj reguły. Początek, koniec oraz pusty symbol na taśmie oznaczyć możesz przez użycie spacji " " lub "#".</p>
+        <p>Zdefiniuj reguły. Początek, koniec oraz pusty symbol na taśmie oznaczyć możesz przez użycie spacji " ".</p>
         <b-list-group id="ruleList">
           <b-row class="m-1">
-            <b-col cols="2">
+            <b-col cols="4" md="2">
               Stary Stan
             </b-col>
-            <b-col cols="2">
+            <b-col cols="4" md="2">
               Stary Symbol
             </b-col>
-            <b-col cols="2">
+            <b-col cols="4" md="2">
               Nowy Symbol
             </b-col>
-            <b-col cols="2">
+            <b-col cols="4" md="2">
               Nowy Stan
             </b-col>
-            <b-col cols="2">
+            <b-col cols="4" md="2">
               Przesunięcie
             </b-col>
-            <b-col cols="2">
+            <b-col cols="4" md="2">
             </b-col>
           </b-row>
           <b-row class="m-1" v-for="(rule, index) in rules" v-bind:class=" {'current-rule': currentRuleCheck(index)} ">
-            <b-col cols="2">
-              <b-form-input type="text" v-model="rule.oldState">
+            <b-col cols="4" md="2">
+              <b-form-input maxlength="2" type="text" v-model="rule.oldState">
             </b-col>
-            <b-col cols="2">
-              <b-form-input type="text" v-model="rule.oldSymbol">
+            <b-col cols="4" md="2">
+              <b-form-input maxlength="1" type="text" v-model="rule.oldSymbol">
             </b-col>
-            <b-col cols="2">
-              <b-form-input type="text" v-model="rule.newSymbol">
+            <b-col cols="4" md="2">
+              <b-form-input maxlength="1" type="text" v-model="rule.newSymbol">
             </b-col>
-            <b-col cols="2">
-              <b-form-input type="text" v-model="rule.newState">
+            <b-col cols="4" md="2">
+              <b-form-input maxlength="2" type="text" v-model="rule.newState">
             </b-col>
-            <b-col cols="2">
+            <b-col cols="4" md="2">
               <b-form-select v-model="rule.move" :options="rulesOptions"></b-form-select>
             </b-col>
-            <b-col cols="2">
+            <b-col cols="4" md="2">
               <b-button v-on:click="deleteRow(index)">Usuń regułę</b-button>
             </b-col>
           </b-row>
@@ -157,7 +157,7 @@
           </b-row>
         </b-list-group>
         <br>
-        <b-button v-on:click="addRowEndState">Dodaj nową regułę</b-button>
+        <b-button v-on:click="addRowEndState">Dodaj stan końcowy</b-button>
       </div>
       <div class="col-md-12">
         <h2>Animacja</h2>
@@ -176,6 +176,7 @@
           <b-dropdown-item v-on:click="installExample('binaryCounter')">Licznik binarny</b-dropdown-item>
           <b-dropdown-item v-on:click="installExample('infinityLeft')">Nieskończoność w lewo</b-dropdown-item>
           <b-dropdown-item v-on:click="installExample('infinityRight')">Nieskończoność w prawo</b-dropdown-item>
+          <b-dropdown-item v-on:click="installExample('palindrome')">Czy wyraz to palindrom (alfabet={a,b})</b-dropdown-item>
         </b-dropdown>
         <b-form-textarea
         id="textarea"
@@ -252,6 +253,39 @@
         {oldState: '1', oldSymbol: ' ', newSymbol: '0', newState: '0', move: 'S'},
       ],
       endState: [],
+    },
+    palindrome: {
+      position:10,
+      tapeContent: [
+        'a','b','b','a','a','b','a','a','b','b','a'
+      ],
+      state: '0',
+      rules:[
+        {"oldState":"0","oldSymbol":"a","newSymbol":" ","newState":"qa","move":"L"},
+        {"oldState":"qa","oldSymbol":"a","newSymbol":"a","newState":"qa","move":"L"},
+        {"oldState":"qa","oldSymbol":"b","newSymbol":"b","newState":"qa","move":"L"},
+        {"oldState":"qa","oldSymbol":" ","newSymbol":" ","newState":"ca","move":"R"},
+        {"oldState":"ca","oldSymbol":"a","newSymbol":" ","newState":"r","move":"R"},
+        {"oldState":"r","oldSymbol":"a","newSymbol":"a","newState":"r","move":"R"},
+        {"oldState":"r","oldSymbol":"b","newSymbol":"b","newState":"r","move":"R"},
+        {"oldState":"r","oldSymbol":" ","newSymbol":" ","newState":"r0","move":"L"},
+        {"oldState":"0","oldSymbol":"b","newSymbol":" ","newState":"qb","move":"L"},
+        {"oldState":"qb","oldSymbol":"b","newSymbol":"b","newState":"qb","move":"L"},
+        {"oldState":"qb","oldSymbol":"a","newSymbol":"a","newState":"qb","move":"L"},
+        {"oldState":"qb","oldSymbol":" ","newSymbol":" ","newState":"cb","move":"R"},
+        {"oldState":"cb","oldSymbol":"b","newSymbol":" ","newState":"r","move":"R"},
+        {"oldState":"ca","oldSymbol":"b","newSymbol":"b","newState":"f","move":"S"},
+        {"oldState":"cb","oldSymbol":"a","newSymbol":"a","newState":"f","move":"S"},
+        {"oldState":"ca","oldSymbol":" ","newSymbol":" ","newState":"t","move":"S"},
+        {"oldState":"cb","oldSymbol":" ","newSymbol":" ","newState":"t","move":"S"},
+        {"oldState":"r0","oldSymbol":" ","newSymbol":" ","newState":"t","move":"S"},
+        {"oldState":"r0","oldSymbol":"a","newSymbol":"a","newState":"0","move":"S"},
+        {"oldState":"r0","oldSymbol":"b","newSymbol":"b","newState":"0","move":"S"}
+      ],
+      endState: [
+        {state: 't'},
+        {state: 'f'},
+      ]
     }
   };
   var data = {
@@ -293,7 +327,7 @@
     animationSpeed: 0.5, // default AnimationSpeed
 
     importExportJSON: null,
-    backup: '{"position":7,"tapeContent":"10111111","state":"0","rules":[{"oldState":"0","oldSymbol":" ","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"0","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"1","newSymbol":"0","newState":"0","move":"L"},{"oldState":"1","oldSymbol":" ","newSymbol":" ","newState":"h","move":"L"},{"oldState":"1","oldSymbol":"0","newSymbol":"0","newState":"1","move":"R"},{"oldState":"1","oldSymbol":"1","newSymbol":"1","newState":"1","move":"R"}]}',
+    backup: '{"position":7,"tapeContent":"10111111","state":"0","rules":[{"oldState":"0","oldSymbol":" ","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"0","newSymbol":"1","newState":"1","move":"R"},{"oldState":"0","oldSymbol":"1","newSymbol":"0","newState":"0","move":"L"},{"oldState":"1","oldSymbol":" ","newSymbol":" ","newState":"h","move":"L"},{"oldState":"1","oldSymbol":"0","newSymbol":"0","newState":"1","move":"R"},{"oldState":"1","oldSymbol":"1","newSymbol":"1","newState":"1","move":"R"}],"endState":[{"state":"h"}]}',
     rulesOptions: [
       { value: 'L', text: "Lewo" },
       { value: 'R', text: "Prawo" },
@@ -364,6 +398,7 @@
       */
       loadData: function() {
         data.tapeContent = data.inputTape.split('');
+        data.stepsCounter = 0;
 
         if (data.inputStartPosition == 'last') {
           data.position = data.tapeContent.length - 1;
@@ -656,8 +691,13 @@
     canvas {
       border: 1px solid white;
     }
-    #ruleList .row .col-2:first-of-type {
-      padding-left: 30px;
+    @media (min-width: 576px) {
+      #ruleList .row .col-2:first-of-type {
+        padding-left: 30px;
+      }
+    }
+    #ruleList .row .col-md-2 {
+      padding: 1px;
     }
     #ruleList .row.current-rule::before {
       font-size: 1.5rem;
@@ -665,6 +705,7 @@
       position: absolute;
       color: darkgreen;
       display: inline-block;
+      margin-left: -20px;
     }
   </style>
 </body>
